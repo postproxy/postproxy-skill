@@ -6,7 +6,7 @@ allowed-tools: Bash
 
 # PostProxy API Skill
 
-Call the PostProxy API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads).
+Call the [PostProxy](https://postproxy.dev/) API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads).
 
 ## Setup
 
