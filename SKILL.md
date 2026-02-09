@@ -1,6 +1,7 @@
 ---
 name: postproxy
-description: Call PostProxy API to create and manage social media posts
+description: Create, schedule, and manage social media posts across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, or manage existing posts on social media platforms.
+version: 1.0.0
 allowed-tools: Bash
 ---
 
