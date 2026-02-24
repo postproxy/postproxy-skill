@@ -53,6 +53,26 @@ Schedule a post for tomorrow at 9 AM saying "Good morning! Here's today's update
 Create a draft post with the image from ./screenshot.png and the text "New product launch" for Instagram
 ```
 
+### Get post stats
+
+```
+Show me the stats for my last 3 posts
+```
+
+```
+How did my Instagram posts perform this week?
+```
+
+### List placements
+
+```
+What Facebook pages can I post to?
+```
+
+```
+Show me my LinkedIn placements
+```
+
 ### List and manage posts
 
 ```
@@ -72,6 +92,7 @@ Delete the post with ID 12345
 - YouTube
 - X/Twitter
 - Threads
+- Pinterest
 
 ## Features
 
@@ -82,6 +103,8 @@ Delete the post with ID 12345
 - ✅ Publish drafts when ready
 - ✅ Delete posts
 - ✅ List profiles and posts
+- ✅ Get post stats and performance metrics over time
+- ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards)
 - ✅ Platform-specific parameters (Instagram Reels, YouTube titles, etc.)
 
 ## API Documentation
