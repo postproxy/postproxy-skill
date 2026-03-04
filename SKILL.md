@@ -107,6 +107,48 @@ curl -X POST "https://api.postproxy.dev/api/posts" \
   }'
 ```
 
+### Create Thread (Tweet Chain / Thread Post)
+Threads allow you to create a sequence of posts published as replies. Only supported on X (Twitter) and Threads platforms.
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "post": {
+      "body": "1/ Here is a thread about our product launch"
+    },
+    "profiles": ["twitter", "threads"],
+    "thread": [
+      { "body": "2/ First, we built the foundation..." },
+      { "body": "3/ Then we added the key features..." },
+      { "body": "4/ And finally, we launched! Check it out at example.com" }
+    ]
+  }'
+```
+
+With media in thread posts:
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "post": {
+      "body": "1/ Here is a thread with screenshots"
+    },
+    "profiles": ["twitter"],
+    "thread": [
+      {
+        "body": "2/ First feature",
+        "media": ["https://example.com/screenshot1.jpg"]
+      },
+      {
+        "body": "3/ Second feature",
+        "media": ["https://example.com/screenshot2.jpg"]
+      }
+    ]
+  }'
+```
+
 ### Get Post Stats
 Retrieves stats snapshots for one or more posts. Returns all matching snapshots so you can see trends over time.
 ```bash
@@ -163,6 +205,32 @@ For Instagram, TikTok, YouTube, add `platforms` object:
   }
 }
 ```
+
+## Threads
+
+Threads allow you to create a sequence of posts that are published as replies to each other, forming a conversation thread.
+
+### Supported Platforms
+- **X (Twitter)** — each post is published as a reply to the previous tweet
+- **Threads** — each post is published as a reply to the previous Threads post
+
+Attempting to create a thread with other platforms (Instagram, Facebook, LinkedIn, etc.) will return a `422` error.
+
+### How Threads Work
+1. The parent post (`post[body]`) is published first on each platform
+2. Each child post in the `thread` array is published sequentially as a reply to the previous post
+3. Per-platform chains are independent — the X chain and Threads chain run in parallel
+4. Position is determined by the array order (first item = first reply, etc.)
+
+### Thread Parameter Fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `body` | string | Yes | Text content for this thread post |
+| `media` | array | No | Array of media URLs (same format as top-level `media`) |
+
+### Error Handling
+- If a post in the thread chain fails, subsequent posts in that chain will **wait** (they are not published)
+- Each platform chain is independent — a failure on X does not block the Threads chain
 
 ## User Request
 

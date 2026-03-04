@@ -41,6 +41,12 @@ Once installed, your AI agent can use this skill to:
 Create a post saying "Check out our new feature!" and publish it to Twitter, LinkedIn, and Threads
 ```
 
+### Create a thread (tweet chain)
+
+```
+Create a thread on Twitter about our product launch with 4 posts explaining the features
+```
+
 ### Schedule a post
 
 ```
@@ -97,6 +103,7 @@ Delete the post with ID 12345
 ## Features
 
 - ✅ Create posts with text and media
+- ✅ Create thread posts (tweet chains) on Twitter and Threads
 - ✅ Schedule posts for future publication
 - ✅ Create drafts for review before publishing
 - ✅ Upload local files as media attachments
