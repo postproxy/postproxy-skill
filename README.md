@@ -79,6 +79,28 @@ What Facebook pages can I post to?
 Show me my LinkedIn placements
 ```
 
+### Queue management
+
+```
+Show me all my posting queues
+```
+
+```
+Create a queue called "Weekday Mornings" for profile group pg123, timezone America/New_York, with timeslots Monday through Friday at 9am
+```
+
+```
+Add a post to queue q1abc with high priority: "Check out our latest feature!" to Twitter and LinkedIn
+```
+
+```
+Pause queue "morning updates"
+```
+
+```
+What's the next available slot for queue "morning updates"?
+```
+
 ### List and manage posts
 
 ```
@@ -113,6 +135,9 @@ Delete the post with ID 12345
 - ✅ Get post stats and performance metrics over time
 - ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards)
 - ✅ Platform-specific parameters (Instagram Reels, YouTube titles, etc.)
+- ✅ Queue management (create, update, pause, delete queues)
+- ✅ Add posts to queues with priority-based scheduling
+- ✅ Weekly timeslot configuration with timezone and jitter support
 
 ## API Documentation
 
