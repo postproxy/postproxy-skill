@@ -1,7 +1,7 @@
 ---
 name: postproxy
-description: Create, schedule, and manage social media posts across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, or manage existing posts on social media platforms.
-version: 1.1.0
+description: Create, schedule, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, manage existing posts, or manage comments on social media platforms.
+version: 1.2.0
 allowed-tools: Bash
 ---
 
@@ -305,6 +305,107 @@ Do not pass `scheduled_at` together with `queue_id` — the queue determines the
 - **Jitter**: Random +/- offset (0–60 min) for natural posting patterns
 - **Pausing**: Set `enabled: false` to pause; posts won't publish while paused. Unpausing rearranges all posts into future slots.
 - **Dynamic Rearrangement**: Queue auto-rearranges all posts when posts are added/removed, timeslots change, timezone changes, or queue is unpaused.
+
+### List Comments
+Retrieves paginated top-level comments for a published post. Each top-level comment includes a flat `replies` array. All comment endpoints require the `profile_id` query parameter.
+```bash
+curl -X GET "https://api.postproxy.dev/api/posts/{post_id}/comments?profile_id={profile_id}&page=0&per_page=20" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Query parameters:
+- `profile_id` (required): Profile ID
+- `page` (optional): Page number, zero-indexed (default: `0`)
+- `per_page` (optional): Top-level comments per page (default: `20`)
+
+Pagination applies to top-level comments only. All replies are flattened into the `replies` array of their root comment, sorted by `created_at` ascending. Each reply retains `parent_external_id` so the client can reconstruct the tree.
+
+### Get Comment
+```bash
+curl -X GET "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+The `comment_id` can be a Postproxy ID (e.g. `cmt_abc123`) or the platform's native external ID.
+
+### Create Comment
+Creates a comment or reply on a published post. Processed asynchronously — returns `status: "pending"` initially.
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Thanks for the feedback everyone!"
+  }'
+```
+
+To reply to an existing comment, add `parent_id`:
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Glad you liked it!",
+    "parent_id": "cmt_abc123"
+  }'
+```
+
+Parameters:
+- `text` (required): Comment text content
+- `parent_id` (optional): Postproxy ID or external ID of comment to reply to. Omit to comment on the post itself.
+
+### Delete Comment
+```bash
+curl -X DELETE "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+### Hide Comment
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}/hide?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+### Unhide Comment
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}/unhide?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+### Like Comment
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}/like?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+### Unlike Comment
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id}/unlike?profile_id={profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+## Comments
+
+### Platform Support for Comment Actions
+
+| Action | Instagram | Facebook | Threads | YouTube | LinkedIn |
+|--------|-----------|----------|---------|---------|----------|
+| List | Yes | Yes | Yes | Yes | Yes |
+| Reply | Yes | Yes | Yes | Yes | Yes |
+| Delete | Yes | Yes | No | Yes | Yes |
+| Hide/Unhide | Yes | Yes | Yes | No | No |
+| Like/Unlike | No | Yes | No | No | No |
+
+Attempting an unsupported action returns `405 Method Not Allowed`.
+
+### Comment Statuses
+- `synced` — fetched from the platform during sync
+- `pending` — created via API, being published to the platform
+- `published` — successfully published to the platform
+- `failed` — failed to publish to the platform
+
+### Async Behavior
+All write operations (create, delete, hide, unhide, like, unlike) are processed asynchronously. Create returns the comment with `status: "pending"` and `external_id: null`. Once published, status updates to `"published"` and `external_id` is populated.
 
 ## Platform-Specific Parameters
 

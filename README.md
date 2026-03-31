@@ -4,7 +4,7 @@ An Agent Skill for managing social media posts across multiple platforms using t
 
 ## Overview
 
-This skill enables AI agents to create, manage, and schedule social media posts across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads through the PostProxy API.
+This skill enables AI agents to create, manage, and schedule social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads through the PostProxy API.
 
 ## Installation
 
@@ -101,6 +101,24 @@ Pause queue "morning updates"
 What's the next available slot for queue "morning updates"?
 ```
 
+### Comment management
+
+```
+Show me the comments on my latest Instagram post
+```
+
+```
+Reply to the top comment on post abc123 saying "Thanks for the kind words!"
+```
+
+```
+Hide the negative comment cmt_xyz on my Facebook post
+```
+
+```
+Like the first comment on my Facebook post abc123
+```
+
 ### List and manage posts
 
 ```
@@ -138,6 +156,9 @@ Delete the post with ID 12345
 - ✅ Queue management (create, update, pause, delete queues)
 - ✅ Add posts to queues with priority-based scheduling
 - ✅ Weekly timeslot configuration with timezone and jitter support
+- ✅ Comment management (list, create, reply, delete)
+- ✅ Hide/unhide and like/unlike comments
+- ✅ Async comment operations with status tracking
 
 ## API Documentation
 
