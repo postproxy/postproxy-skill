@@ -1,7 +1,7 @@
 ---
 name: postproxy
-description: Create, schedule, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, manage existing posts, or manage comments on social media platforms.
-version: 1.2.0
+description: Create, schedule, update, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, update existing posts, delete posts from social platforms, or manage comments on social media platforms.
+version: 1.3.0
 allowed-tools: Bash
 ---
 
@@ -187,11 +187,131 @@ curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/placements" \
 
 Response is a `data` array of placement objects with `id` (string or null for personal profile) and `name`.
 
+### Update Post
+Updates an existing post. Only drafts and scheduled posts more than 5 minutes before publish time can be updated. All body fields are optional — only send what you want to change.
+```bash
+curl -X PATCH "https://api.postproxy.dev/api/posts/{id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "post": {
+      "body": "Updated post content!"
+    }
+  }'
+```
+
+Body parameters (all optional):
+- `post[body]`: Updated text content
+- `post[scheduled_at]`: Updated ISO 8601 schedule timestamp
+- `post[draft]`: Set/unset draft status
+- `profiles`: **Full replace** — array of profile IDs or network names
+- `platforms`: **Merged** with existing platform params (per network)
+- `media`: **Full replace** — array of URLs (send `[]` to remove all)
+- `thread`: **Full replace** — array of thread children (send `[]` to remove all)
+- `queue_id`: Assign post to a queue
+- `queue_priority`: `high`, `medium`, or `low`
+
+Update behavior:
+- `post` fields are merged with existing values
+- `profiles`, `media`, `thread` are full-replace — omitted = unchanged, `[]` = clear
+- `platforms` is merged into existing params per network. Sending `{"platforms": {"youtube": {"privacy_status": "unlisted"}}}` updates only that field
+- Thread children inherit parent's profiles, scheduling, draft status
+
+Example: replace profiles and media:
+```bash
+curl -X PATCH "https://api.postproxy.dev/api/posts/{id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profiles": ["twitter", "threads"],
+    "media": ["https://example.com/new-image.jpg"]
+  }'
+```
+
+Example: update platform params only:
+```bash
+curl -X PATCH "https://api.postproxy.dev/api/posts/{id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platforms": {
+      "youtube": { "privacy_status": "unlisted" }
+    }
+  }'
+```
+
+Errors:
+- `422` "Post cannot be edited" — post is published or within 5min of scheduled publish
+- `422` "Profile not found for {id}"
+- `422` "Invalid platform params for {network}: {key}"
+- `404` "Not found"
+
 ### Delete Post
+By default removes only from DB. Pass `delete_on_platform=true` to also remove from social platforms first.
 ```bash
 curl -X DELETE "https://api.postproxy.dev/api/posts/{id}" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
+
+Delete from DB AND from all published platforms:
+```bash
+curl -X DELETE "https://api.postproxy.dev/api/posts/{id}?delete_on_platform=true" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Query parameter:
+- `delete_on_platform` (optional, default `false`): If `true`, deletes from all published platforms before removing from DB
+
+### Delete on Platform
+Async deletes a published post from social platforms WITHOUT removing it from the DB. Optionally scope to a specific platform/profile. If no scope is given, deletes from all published platforms.
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{id}/delete_on_platform" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Scope by network:
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{id}/delete_on_platform" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"network": "twitter"}'
+```
+
+Scope by profile ID:
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{id}/delete_on_platform" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"profile_id": "prof_abc123"}'
+```
+
+Scope by post profile ID (covers entire thread for that profile):
+```bash
+curl -X POST "https://api.postproxy.dev/api/posts/{id}/delete_on_platform" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"post_profile_id": "pp_abc123"}'
+```
+
+Body parameters (all optional, omit all = delete from every published platform):
+- `post_profile_id`: ID of a specific post profile. Resolves to the underlying profile, deletes across the entire thread
+- `profile_id`: ID of a profile. Deletes all post profiles for this profile on the post
+- `network`: Network name. Deletes all post profiles for this network on the post
+
+Supported platforms: `facebook`, `threads`, `twitter`, `linkedin`, `pinterest`, `youtube`.
+NOT supported: `instagram`, `tiktok` — request returns `422` if scoped to one of these.
+
+Response (200):
+```json
+{
+  "success": true,
+  "deleting": [
+    { "post_profile_id": "pp_abc123", "platform": "twitter" }
+  ]
+}
+```
+
+After triggering, platform status transitions: `published` → `pending_deletion` → `deleted`.
 
 ### List Queues
 ```bash

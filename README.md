@@ -129,6 +129,34 @@ Show me all my scheduled posts
 Delete the post with ID 12345
 ```
 
+### Update posts
+
+```
+Update post abc123 to say "Updated content!" instead
+```
+
+```
+Reschedule post abc123 for next Monday at 10am
+```
+
+```
+Change the YouTube privacy on post abc123 to unlisted
+```
+
+### Delete from social platforms
+
+```
+Delete post abc123 from Twitter only
+```
+
+```
+Remove post abc123 from all social platforms but keep it in PostProxy
+```
+
+```
+Delete post abc123 everywhere — DB and platforms
+```
+
 ## Supported Platforms
 
 - Facebook
@@ -148,7 +176,9 @@ Delete the post with ID 12345
 - ✅ Create drafts for review before publishing
 - ✅ Upload local files as media attachments
 - ✅ Publish drafts when ready
-- ✅ Delete posts
+- ✅ Update existing drafts and scheduled posts (body, schedule, profiles, media, platforms, threads)
+- ✅ Delete posts (DB only, or DB + social platforms)
+- ✅ Delete posts from individual social platforms while keeping the DB record
 - ✅ List profiles and posts
 - ✅ Get post stats and performance metrics over time
 - ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards)
