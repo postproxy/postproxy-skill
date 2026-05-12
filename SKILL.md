@@ -1,13 +1,13 @@
 ---
 name: postproxy
-description: Create, schedule, update, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, update existing posts, delete posts from social platforms, or manage comments on social media platforms.
-version: 1.3.0
+description: Create, schedule, update, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, and Telegram using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, update existing posts, delete posts from social platforms, manage comments, or retrieve profile/follower stats.
+version: 1.4.0
 allowed-tools: Bash
 ---
 
 # PostProxy API Skill
 
-Call the [PostProxy](https://postproxy.dev/) API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads).
+Call the [PostProxy](https://postproxy.dev/) API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, Telegram).
 
 ## Setup
 
@@ -34,6 +34,66 @@ All requests require Bearer token:
 curl -X GET "https://api.postproxy.dev/api/profiles" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
+Optional query parameter: `profile_group_id` to filter by profile group.
+
+### Get Profile (with latest stats)
+Returns the profile fields plus the latest stats snapshot per placement, and a `summary_stats` rollup for placement networks.
+```bash
+curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Response shape:
+- `latest_stats` — array of latest snapshots. One entry per placement for placement networks (Facebook/LinkedIn/Telegram); a single entry with `placement_id: null` for non-placement networks (Bluesky, Twitter, Instagram, Threads, YouTube, TikTok, Pinterest). Empty if no snapshots have been recorded yet.
+- `latest_stats[].placement_id` — string or `null`.
+- `latest_stats[].stats` — platform-specific metrics (see [Profile Stats Fields](#profile-stats-fields)).
+- `latest_stats[].recorded_at` — ISO 8601 timestamp.
+- `summary_stats` — for placement networks, numeric values summed across the latest snapshot of every placement (non-numeric values like `channel_title` are omitted). `null` for non-placement networks and when no snapshots exist.
+
+Snapshots refresh roughly every 23 hours per profile. If `latest_stats` is empty, the profile is connected but hasn't been polled yet.
+
+### Get Profile Stats (timeseries)
+Retrieves the full stats timeseries for a profile. Use this to plot follower growth and engagement trends over time. Snapshots are captured roughly every 23 hours.
+```bash
+curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/stats?placement_id={placement_id}&from=2026-04-01T00:00:00Z&to=2026-05-01T00:00:00Z" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Query parameters:
+- `placement_id` (conditional): **Required** for `facebook`, `linkedin`, and `telegram` profiles. The platform-specific ID returned by [List Placements](#list-placements). Omit (or ignored) for other networks.
+- `from` (optional): ISO 8601 — only include snapshots at or after this time.
+- `to` (optional): ISO 8601 — only include snapshots at or before this time.
+
+Response shape: `data.profile_id`, `data.platform`, `data.placement_id` (echo of the request, `null` for non-placement networks), and `data.records` — snapshots ordered by `recorded_at` ascending. Each record has `stats` (platform-specific metrics) and `recorded_at`.
+
+Missing `placement_id` for a placement network returns `400`.
+
+For a non-placement network like Bluesky, omit `placement_id`:
+```bash
+curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/stats" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+#### Profile Stats Fields
+
+The `stats` object's keys come straight from each platform's API — they are not normalized. A key only appears in a snapshot if the platform returned a value on that polling cycle, so fields can come and go between records.
+
+| Network | Placement-scoped? | Typical fields |
+|---------|-------------------|----------------|
+| `facebook` | Yes (per page) | `fan_count`, `followers_count`, plus daily page insights (`page_impressions`, `page_views_total`, `page_fan_adds`, `page_fan_removes`, …) |
+| `linkedin` | Yes (per organization) | `followerCount`, `shareCount`, `likeCount`, `commentCount`, `clickCount`, `engagement`, `allPageViews`, `overviewPageViews`, `aboutPageViews`, `careersPageViews`, `peoplePageViews`, `insightsPageViews` |
+| `telegram` | Yes (per channel) | `followers_count`, `channel_title`, `channel_username` |
+| `instagram` | No | `followers_count`, `follows_count`, `media_count`, `reach`, `profile_views`, `accounts_engaged`, `total_interactions`, `website_clicks`, `follower_count` |
+| `threads` | No | `followers_count`, `views`, `likes`, `replies`, `reposts`, `quotes` |
+| `youtube` | No | `subscriberCount`, `viewCount`, `videoCount` |
+| `twitter` | No | `followers_count`, `following_count`, `tweet_count`, `listed_count`, `like_count` |
+| `tiktok` | No | `follower_count`, `following_count`, `likes_count`, `video_count` |
+| `pinterest` | No | `follower_count`, `following_count`, `pin_count`, `board_count`, `monthly_views`, `analytics_30d` |
+| `bluesky` | No | `followersCount`, `followsCount`, `postsCount` |
+
+Notes:
+- Non-numeric fields (e.g. Telegram's `channel_title`) appear in `latest_stats[].stats` but are omitted from `summary_stats.stats`, which sums numeric values only.
+- LinkedIn page-view metrics are filtered to rollups only (redundant mobile/desktop splits and dead sections like `productsPageViews` / `lifeAtPageViews` are dropped).
 
 ### List Posts
 ```bash
@@ -90,7 +150,7 @@ curl -X POST "https://api.postproxy.dev/api/posts/{id}/publish" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
 
-Profile options: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads` (or use profile IDs)
+Profile options: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram` (or use profile IDs)
 
 ### Schedule Post
 Add `scheduled_at` to post object:
@@ -108,7 +168,7 @@ curl -X POST "https://api.postproxy.dev/api/posts" \
 ```
 
 ### Create Thread (Tweet Chain / Thread Post)
-Threads allow you to create a sequence of posts published as replies. Only supported on X (Twitter) and Threads platforms.
+Threads allow you to create a sequence of posts published as replies. Supported on X (Twitter), Threads, and Bluesky.
 ```bash
 curl -X POST "https://api.postproxy.dev/api/posts" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY" \
@@ -173,19 +233,20 @@ Stats fields by platform:
 - LinkedIn: `impressions`
 - TikTok: `impressions`, `likes`, `comments`, `shares`
 - Pinterest: `impressions`, `likes`, `comments`, `saved`, `outbound_clicks`
+- Bluesky: `likes`, `reposts`, `comments`, `quotes`
 
-Note: Instagram stories do not return stats. TikTok stats require a public ID.
+Note: Instagram stories do not return stats. TikTok stats require a public ID. Bluesky does not expose impression/view counts. Telegram channel posts do not currently expose per-post stats.
 
 ### List Placements
-Retrieves available placements for a profile. For Facebook: business pages. For LinkedIn: personal profile and organizations. For Pinterest: boards. Available for `facebook`, `linkedin`, and `pinterest` profiles.
+Retrieves available placements for a profile. For Facebook: business pages. For LinkedIn: personal profile and organizations. For Pinterest: boards. For Telegram: channels the bot has been added to as administrator. Available for `facebook`, `linkedin`, `pinterest`, and `telegram` profiles.
 
-If no placement is specified when creating a post: LinkedIn defaults to personal profile, Facebook defaults to a random connected page, Pinterest fails.
+If no placement is specified when creating a post: LinkedIn defaults to personal profile, Facebook defaults to a random connected page, Pinterest fails, Telegram fails (`chat_id` is always required).
 ```bash
 curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/placements" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
 
-Response is a `data` array of placement objects with `id` (string or null for personal profile) and `name`.
+Response is a `data` array of placement objects with `id` (string, or `null` for the LinkedIn personal profile) and `name`. For Telegram, the placement `id` is the `chat_id` to pass in `platforms.telegram.chat_id` when creating a post. The Telegram list is empty until the user adds the bot as administrator to a channel — poll after connecting the bot.
 
 ### Update Post
 Updates an existing post. Only drafts and scheduled posts more than 5 minutes before publish time can be updated. All body fields are optional — only send what you want to change.
@@ -298,7 +359,7 @@ Body parameters (all optional, omit all = delete from every published platform):
 - `profile_id`: ID of a profile. Deletes all post profiles for this profile on the post
 - `network`: Network name. Deletes all post profiles for this network on the post
 
-Supported platforms: `facebook`, `threads`, `twitter`, `linkedin`, `pinterest`, `youtube`.
+Supported platforms: `facebook`, `threads`, `twitter`, `linkedin`, `pinterest`, `youtube`, `bluesky`, `telegram`.
 NOT supported: `instagram`, `tiktok` — request returns `422` if scoped to one of these.
 
 Response (200):
@@ -529,13 +590,72 @@ All write operations (create, delete, hide, unhide, like, unlike) are processed 
 
 ## Platform-Specific Parameters
 
-For Instagram, TikTok, YouTube, add `platforms` object:
+For Instagram, TikTok, YouTube, Telegram, etc., add a `platforms` object keyed by network:
 ```json
 {
   "platforms": {
     "instagram": { "format": "reel", "first_comment": "Link in bio!" },
     "youtube": { "title": "Video Title", "privacy_status": "public" },
-    "tiktok": { "privacy_status": "PUBLIC_TO_EVERYONE" }
+    "tiktok": { "privacy_status": "PUBLIC_TO_EVERYONE" },
+    "telegram": { "chat_id": "-1001234567890", "parse_mode": "HTML", "disable_link_preview": true }
+  }
+}
+```
+
+### Bluesky
+- No custom parameters.
+- **Character limit:** 300 graphemes (emoji + combining sequences count as one).
+- **Rich text auto-detection** — Postproxy scans the body and converts mentions, hashtags, and URLs to AT Protocol facets. Write the post normally, no special markup:
+  - `@handle.bsky.social` → clickable mention (custom-domain handles work too; resolution cached 24h; unresolvable handles fall through as plain text).
+  - `#hashtag` → clickable tag feed link (letters/digits/underscores, up to 64 chars).
+  - `https://...` URLs → clickable links (trailing punctuation stripped).
+- **Link card previews** — when the post contains a URL **and no media attachments**, Postproxy auto-generates a Bluesky link card embed by reading OG meta (`og:title`, `og:description`, `og:image`). Image is skipped if > ~950 KB. Link cards and media attachments are mutually exclusive — if media is attached, the URL is still rendered as a clickable link but no preview card is generated. Place the URL at the end of the post for the best preview.
+- **Media:** images ≤ 1 MB (jpg/png/webp/gif, max 4), video ≤ 100 MB (mp4/mov, max 1, 1–60s). Cannot mix video + image.
+
+Example:
+```json
+{
+  "post": {
+    "body": "Hey @jay.bsky.team — new #release out: https://example.com/post"
+  },
+  "profiles": ["bluesky"]
+}
+```
+
+### Telegram
+Telegram is a **bring-your-own-bot** integration. Each connected profile is one bot (created via [@BotFather](https://t.me/BotFather)) and can publish to any channel where that bot has been added as administrator. List target channels via the [List Placements](#list-placements) endpoint.
+
+Parameters (under `platforms.telegram`):
+- `chat_id` (string, **required**) — ID of the destination channel/group. Get it from `/api/profiles/{profile_id}/placements`.
+- `parse_mode` (string, optional) — `"HTML"`, `"MarkdownV2"`, or omit for plain text.
+- `disable_link_preview` (boolean, optional) — suppress the URL preview card.
+- `disable_notification` (boolean, optional) — send silently (no notification sound).
+
+**Character limit:** 4,096 chars for text-only posts, 1,024 chars for captions when media is attached. Body content beyond the caption limit is truncated.
+
+**Media:** images ≤ 10 MB (jpg/png/webp/gif, max 10), video ≤ 50 MB (mp4/mov, max 10), document ≤ 50 MB (pdf/doc/docx/zip/mp3/wav, max 1). Mixing video and image is allowed (sent as a media group).
+
+The returned `external_id` is `"<chat_id>/<message_id>"`. For media groups, ids are comma-separated: `"<chat_id>/<id1>,<id2>,…"`.
+
+Notes:
+- Bot must be a member (preferably **administrator** with permission to post) of the target channel. Add it manually in Telegram.
+- Channels appear in `/placements` after Telegram pushes a `my_chat_member` event. If a channel doesn't show up, ask the user to remove and re-add the bot to refire discovery.
+- If the bot is kicked or its token is revoked in BotFather, the next publish fails with `inactive_profile_error` and the profile is deactivated.
+
+Example:
+```json
+{
+  "post": {
+    "body": "<b>New release</b> — read more on our blog https://example.com/post"
+  },
+  "profiles": ["telegram"],
+  "platforms": {
+    "telegram": {
+      "chat_id": "-1001234567890",
+      "parse_mode": "HTML",
+      "disable_link_preview": true,
+      "disable_notification": false
+    }
   }
 }
 ```
@@ -547,13 +667,14 @@ Threads allow you to create a sequence of posts that are published as replies to
 ### Supported Platforms
 - **X (Twitter)** — each post is published as a reply to the previous tweet
 - **Threads** — each post is published as a reply to the previous Threads post
+- **Bluesky** — each post is published as a reply to the previous Bluesky post
 
 Attempting to create a thread with other platforms (Instagram, Facebook, LinkedIn, etc.) will return a `422` error.
 
 ### How Threads Work
 1. The parent post (`post[body]`) is published first on each platform
 2. Each child post in the `thread` array is published sequentially as a reply to the previous post
-3. Per-platform chains are independent — the X chain and Threads chain run in parallel
+3. Per-platform chains are independent — the X, Threads, and Bluesky chains run in parallel
 4. Position is determined by the array order (first item = first reply, etc.)
 
 ### Thread Parameter Fields

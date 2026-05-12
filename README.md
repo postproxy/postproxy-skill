@@ -4,7 +4,7 @@ An Agent Skill for managing social media posts across multiple platforms using t
 
 ## Overview
 
-This skill enables AI agents to create, manage, and schedule social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, and Threads through the PostProxy API.
+This skill enables AI agents to create, manage, and schedule social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, and Telegram through the PostProxy API.
 
 ## Installation
 
@@ -67,6 +67,16 @@ Show me the stats for my last 3 posts
 
 ```
 How did my Instagram posts perform this week?
+```
+
+### Get profile stats
+
+```
+Show me follower growth for my Bluesky account over the last month
+```
+
+```
+What are my latest follower counts across all profiles?
 ```
 
 ### List placements
@@ -167,11 +177,13 @@ Delete post abc123 everywhere — DB and platforms
 - X/Twitter
 - Threads
 - Pinterest
+- Bluesky
+- Telegram
 
 ## Features
 
 - ✅ Create posts with text and media
-- ✅ Create thread posts (tweet chains) on Twitter and Threads
+- ✅ Create thread posts (tweet chains) on Twitter, Threads, and Bluesky
 - ✅ Schedule posts for future publication
 - ✅ Create drafts for review before publishing
 - ✅ Upload local files as media attachments
@@ -181,8 +193,11 @@ Delete post abc123 everywhere — DB and platforms
 - ✅ Delete posts from individual social platforms while keeping the DB record
 - ✅ List profiles and posts
 - ✅ Get post stats and performance metrics over time
-- ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards)
-- ✅ Platform-specific parameters (Instagram Reels, YouTube titles, etc.)
+- ✅ Get profile stats (follower growth + engagement timeseries)
+- ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards, Telegram channels)
+- ✅ Platform-specific parameters (Instagram Reels, YouTube titles, Telegram parse_mode, etc.)
+- ✅ Bluesky rich-text auto-detection (mentions, hashtags, link cards)
+- ✅ Telegram bring-your-own-bot publishing to channels
 - ✅ Queue management (create, update, pause, delete queues)
 - ✅ Add posts to queues with priority-based scheduling
 - ✅ Weekly timeslot configuration with timezone and jitter support
