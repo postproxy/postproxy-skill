@@ -4,7 +4,7 @@ An Agent Skill for managing social media posts across multiple platforms using t
 
 ## Overview
 
-This skill enables AI agents to create, manage, and schedule social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, and Telegram through the PostProxy API.
+This skill enables AI agents to create, manage, and schedule social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, Telegram, and Google Business through the PostProxy API.
 
 ## Installation
 
@@ -129,6 +129,26 @@ Hide the negative comment cmt_xyz on my Facebook post
 Like the first comment on my Facebook post abc123
 ```
 
+### Google Business reviews
+
+```
+List recent reviews on my Google Business profile
+```
+
+```
+Reply to the latest 5-star review on my Google Business location with "Thanks so much!"
+```
+
+### Google Business local posts
+
+```
+Post an event on Google Business for our anniversary party on June 15
+```
+
+```
+Create a Google Business offer with code BEANS20 running through end of June
+```
+
 ### List and manage posts
 
 ```
@@ -179,6 +199,7 @@ Delete post abc123 everywhere — DB and platforms
 - Pinterest
 - Bluesky
 - Telegram
+- Google Business
 
 ## Features
 
@@ -194,15 +215,17 @@ Delete post abc123 everywhere — DB and platforms
 - ✅ List profiles and posts
 - ✅ Get post stats and performance metrics over time
 - ✅ Get profile stats (follower growth + engagement timeseries)
-- ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards, Telegram channels)
-- ✅ Platform-specific parameters (Instagram Reels, YouTube titles, Telegram parse_mode, etc.)
+- ✅ List placements (Facebook pages, LinkedIn orgs, Pinterest boards, Telegram channels, Google Business locations)
+- ✅ Platform-specific parameters (Instagram Reels, YouTube titles, Telegram parse_mode, Google Business events/offers, etc.)
 - ✅ Bluesky rich-text auto-detection (mentions, hashtags, link cards)
 - ✅ Telegram bring-your-own-bot publishing to channels
+- ✅ Google Business local posts (standard, event, offer formats with CTAs)
 - ✅ Queue management (create, update, pause, delete queues)
 - ✅ Add posts to queues with priority-based scheduling
 - ✅ Weekly timeslot configuration with timezone and jitter support
 - ✅ Comment management (list, create, reply, delete)
 - ✅ Hide/unhide and like/unlike comments
+- ✅ Reply to Google Business reviews via Profile Comments API
 - ✅ Async comment operations with status tracking
 
 ## API Documentation

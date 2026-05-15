@@ -1,13 +1,13 @@
 ---
 name: postproxy
-description: Create, schedule, update, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, and Telegram using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, update existing posts, delete posts from social platforms, manage comments, or retrieve profile/follower stats.
-version: 1.4.0
+description: Create, schedule, update, and manage social media posts and comments across Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, Telegram, and Google Business using the PostProxy API. Use when user wants to publish posts, schedule content, create drafts, upload media, manage posting queues, update existing posts, delete posts from social platforms, manage post comments, reply to Google Business reviews, or retrieve profile/follower stats.
+version: 1.5.0
 allowed-tools: Bash
 ---
 
 # PostProxy API Skill
 
-Call the [PostProxy](https://postproxy.dev/) API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, Telegram).
+Call the [PostProxy](https://postproxy.dev/) API to manage social media posts across multiple platforms (Facebook, Instagram, TikTok, LinkedIn, YouTube, X/Twitter, Threads, Pinterest, Bluesky, Telegram, Google Business).
 
 ## Setup
 
@@ -150,7 +150,7 @@ curl -X POST "https://api.postproxy.dev/api/posts/{id}/publish" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
 
-Profile options: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram` (or use profile IDs)
+Profile options: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`, `google_business` (or use profile IDs)
 
 ### Schedule Post
 Add `scheduled_at` to post object:
@@ -238,9 +238,9 @@ Stats fields by platform:
 Note: Instagram stories do not return stats. TikTok stats require a public ID. Bluesky does not expose impression/view counts. Telegram channel posts do not currently expose per-post stats.
 
 ### List Placements
-Retrieves available placements for a profile. For Facebook: business pages. For LinkedIn: personal profile and organizations. For Pinterest: boards. For Telegram: channels the bot has been added to as administrator. Available for `facebook`, `linkedin`, `pinterest`, and `telegram` profiles.
+Retrieves available placements for a profile. For Facebook: business pages. For LinkedIn: personal profile and organizations. For Pinterest: boards. For Telegram: channels the bot has been added to as administrator. For Google Business: locations (full resource path `accounts/X/locations/Y`). Available for `facebook`, `linkedin`, `pinterest`, `telegram`, and `google_business` profiles.
 
-If no placement is specified when creating a post: LinkedIn defaults to personal profile, Facebook defaults to a random connected page, Pinterest fails, Telegram fails (`chat_id` is always required).
+If no placement is specified when creating a post: LinkedIn defaults to personal profile, Facebook defaults to a random connected page, Pinterest fails, Telegram fails (`chat_id` is always required), Google Business fails (`location_id` is always required).
 ```bash
 curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/placements" \
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
@@ -359,7 +359,7 @@ Body parameters (all optional, omit all = delete from every published platform):
 - `profile_id`: ID of a profile. Deletes all post profiles for this profile on the post
 - `network`: Network name. Deletes all post profiles for this network on the post
 
-Supported platforms: `facebook`, `threads`, `twitter`, `linkedin`, `pinterest`, `youtube`, `bluesky`, `telegram`.
+Supported platforms: `facebook`, `threads`, `twitter`, `linkedin`, `pinterest`, `youtube`, `bluesky`, `telegram`, `google_business`.
 NOT supported: `instagram`, `tiktok` — request returns `422` if scoped to one of these.
 
 Response (200):
@@ -565,6 +565,51 @@ curl -X POST "https://api.postproxy.dev/api/posts/{post_id}/comments/{comment_id
   -H "Authorization: Bearer $POSTPROXY_API_KEY"
 ```
 
+### List Profile Comments
+Retrieves reviews scoped to a profile (and optionally a placement/location). Currently only `google_business` profiles return data — Google reviews live on a **location**, not a post, so they're exposed here rather than under the post Comments API. Each top-level comment includes a flat `replies` array.
+```bash
+curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/comments?placement_id={location_path}&page=0&per_page=20" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+Query parameters:
+- `placement_id` (optional): Filter to reviews on a single location (the `accounts/X/locations/Y` path returned by [List Placements](#list-placements))
+- `page` (optional): Page number, zero-indexed (default: `0`)
+- `per_page` (optional): Top-level comments per page (default: `20`)
+
+### Get Profile Comment
+```bash
+curl -X GET "https://api.postproxy.dev/api/profiles/{profile_id}/comments/{comment_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
+The `comment_id` can be a Postproxy hashid (e.g. `cmt_abc123`) or the platform's native external ID (e.g. `accounts/.../locations/.../reviews/...`).
+
+### Reply to Profile Comment
+Creates a reply to an existing review. **Top-level comments are not allowed** — Google Business reviews come from end users, so `parent_id` is required (returns `422` if missing).
+```bash
+curl -X POST "https://api.postproxy.dev/api/profiles/{profile_id}/comments" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parent_id": "accounts/1234/locations/5678/reviews/AbFvOq",
+    "text": "Thanks for the kind words!"
+  }'
+```
+
+Parameters:
+- `parent_id` (required): Hashid or external_id of the review being replied to
+- `text` (required): Reply body
+
+Processed asynchronously — returns the new comment in status `pending`, then transitions to `published` (or `failed` / `failed_waiting_for_retry` with `error_message`).
+
+### Delete Profile Comment
+Deletes **your reply only** — the Google Business API does not let businesses delete the underlying review, so the original review row stays. Returns `{ "accepted": true }` while the delete is dispatched.
+```bash
+curl -X DELETE "https://api.postproxy.dev/api/profiles/{profile_id}/comments/{comment_id}" \
+  -H "Authorization: Bearer $POSTPROXY_API_KEY"
+```
+
 ## Comments
 
 ### Platform Support for Comment Actions
@@ -587,6 +632,39 @@ Attempting an unsupported action returns `405 Method Not Allowed`.
 
 ### Async Behavior
 All write operations (create, delete, hide, unhide, like, unlike) are processed asynchronously. Create returns the comment with `status: "pending"` and `external_id: null`. Once published, status updates to `"published"` and `external_id` is populated.
+
+## Profile Comments
+
+The Profile Comments API (`/api/profiles/:profile_id/comments`) is **separate from the post Comments API**. It surfaces feedback scoped to a profile/location rather than to a single post. Today it exposes **Google Business reviews** — reviews live on a location, not a post, so they cannot be expressed through the post-level Comments API.
+
+### Platform Support
+
+| Action | Google Business |
+|--------|-----------------|
+| List | Yes (reviews on the location) |
+| Reply | Yes (reply to an existing review only — top-level authoring not allowed) |
+| Delete | Yes (removes your reply; review remains) |
+
+Other networks return `405 Method Not Allowed`.
+
+### Statuses
+- `synced` — fetched from Google during sync (incoming reviews)
+- `pending` — reply created via API, being published to Google
+- `published` — reply successfully posted to Google
+- `failed` / `failed_waiting_for_retry` — reply publish failed; `error_message` populated
+
+### Comment ID Resolution
+Both `:comment_id` and `parent_id` accept either:
+- Postproxy hashid (e.g. `abc123xyz`)
+- External ID — the platform's native resource path (e.g. `accounts/.../locations/.../reviews/...`)
+
+### Webhook Event
+Subscribe to `profile_comment.created` (or `*`) on a webhook endpoint to receive events for both newly-synced incoming reviews and outgoing replies once published. Payload contains the same fields as a single comment fetch (`id`, `profile_id`, `platform`, `placement_id`, `external_id`, `parent_external_id`, `body`, `status`, `author_username`, `author_avatar_url`, `platform_data`, `posted_at`, `created_at`).
+
+### Errors
+- `404` — profile/comment/parent not found, or profile group mismatch
+- `405` — action not supported for this profile's network (e.g. reply on a non-`google_business` profile)
+- `422` — missing `parent_id` (top-level authoring forbidden), or replying before the parent has been published
 
 ## Platform-Specific Parameters
 
@@ -655,6 +733,128 @@ Example:
       "parse_mode": "HTML",
       "disable_link_preview": true,
       "disable_notification": false
+    }
+  }
+}
+```
+
+### Google Business
+Google Business publishes **local posts** to a Business Profile **location**. One profile may manage multiple accounts × multiple locations — the target location is selected via `location_id`. Use [List Placements](#list-placements) to enumerate locations.
+
+#### Formats
+
+| Format | Description |
+|--------|-------------|
+| `standard` | Plain local post (default) |
+| `event` | Event with a title and date range |
+| `offer` | Promotion with a validity window and optional coupon |
+
+Each format accepts only its relevant parameters — fields are scoped per format.
+
+#### Shared Parameters (all formats)
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `location_id` | string | Yes | Full location resource path, e.g. `accounts/123456789/locations/987654321`. Get it from [List Placements](#list-placements). |
+| `language_code` | string | No | BCP 47 code (e.g. `en`, `de`). Defaults to `en`. Metadata only — does not translate the body. |
+| `cta_action_type` | string | No | Call-to-action button. One of `LEARN_MORE`, `BOOK`, `ORDER`, `SHOP`, `SIGN_UP`, `CALL`. |
+| `cta_url` | string | No | HTTPS URL the CTA button opens. **Required for every CTA except `CALL`**. |
+
+#### `event` Format — Additional Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event_title` | string | Yes | Display title for the event. |
+| `event_start_date` | string | Yes | `YYYY-MM-DD`. |
+| `event_end_date` | string | Yes | `YYYY-MM-DD`. |
+| `event_start_time` | string | No | `HH:MM` (24h). |
+| `event_end_time` | string | No | `HH:MM` (24h). |
+
+#### `offer` Format — Additional Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `event_start_date` | string | Yes | `YYYY-MM-DD`. Start of the offer validity window. |
+| `event_end_date` | string | Yes | `YYYY-MM-DD`. End of the offer validity window. |
+| `event_start_time` | string | No | `HH:MM` (24h). |
+| `event_end_time` | string | No | `HH:MM` (24h). |
+| `event_title` | string | No | Offer headline. Defaults to `"Special Offer"` if blank. |
+| `offer_coupon_code` | string | No | Promo code displayed with the offer. |
+| `offer_redeem_url` | string | No | URL where the offer can be redeemed. |
+| `offer_terms` | string | No | Terms and conditions for the offer. |
+
+**Character limit:** 1,500 characters (post summary).
+
+**Media:** image only — jpg/png ≤ 5 MB, max 1, minimum 400×300 px (recommended 1200×900, 4:3). **Video is not supported.** Text-only posts are allowed.
+
+#### Notes
+
+- The `external_id` returned for a local post is the full Google resource path (e.g. `accounts/.../locations/.../localPosts/...`). Pass it back as-is for deletion.
+- "Comments" on a Google Business profile map to **reviews on the location**, not per-post comments. They are exposed via the [Profile Comments API](#list-profile-comments), not the post Comments API.
+- Google has sunset local posts for some verticals (e.g. lodging). Publishing on a location whose category is no longer eligible returns a permission/validation error.
+
+#### Example — `standard`
+
+```json
+{
+  "post": {
+    "body": "We're now open on Sundays from 10am to 4pm — come visit!"
+  },
+  "profiles": ["google_business"],
+  "platforms": {
+    "google_business": {
+      "format": "standard",
+      "location_id": "accounts/123456789/locations/987654321",
+      "cta_action_type": "LEARN_MORE",
+      "cta_url": "https://acme.example.com/hours"
+    }
+  }
+}
+```
+
+#### Example — `event`
+
+```json
+{
+  "post": {
+    "body": "Join us for our 5-year anniversary party — live music, free coffee, prizes."
+  },
+  "profiles": ["google_business"],
+  "platforms": {
+    "google_business": {
+      "format": "event",
+      "location_id": "accounts/123456789/locations/987654321",
+      "event_title": "Acme Coffee 5-Year Anniversary",
+      "event_start_date": "2026-06-15",
+      "event_start_time": "18:00",
+      "event_end_date": "2026-06-15",
+      "event_end_time": "22:00",
+      "cta_action_type": "LEARN_MORE",
+      "cta_url": "https://acme.example.com/anniversary"
+    }
+  }
+}
+```
+
+#### Example — `offer`
+
+`offer` posts require a validity window (`event_start_date` and `event_end_date`). `event_title` is optional and defaults to `"Special Offer"` when blank.
+
+```json
+{
+  "post": {
+    "body": "20% off all whole-bean coffee through the end of the month."
+  },
+  "profiles": ["google_business"],
+  "platforms": {
+    "google_business": {
+      "format": "offer",
+      "location_id": "accounts/123456789/locations/987654321",
+      "event_start_date": "2026-06-01",
+      "event_end_date": "2026-06-30",
+      "offer_coupon_code": "BEANS20",
+      "offer_redeem_url": "https://acme.example.com/shop",
+      "offer_terms": "One per customer. Cannot be combined with other offers."
     }
   }
 }
